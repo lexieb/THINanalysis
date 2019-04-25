@@ -44,27 +44,21 @@ health$condition <- case_when(health$medcode %in% diabetes_codes1 ~ "diabetes",
 health$patid2 <- as.character(health$patid)
 
 #this isn't working
-health %>%
-  unique() %>%
+test <- health %>%
   group_by(patid2) %>%
-  summarize(has_diabetes = max((condition  == "diabetes"))) 
+  summarize(has_diabetes = max((condition  == "diabetes"))) %>%
+  summarize(has_liverdisease = max((condition == "liverdisease"))) %>%
+  summarize(has_dementia = max((condition == "dementia"))) %>%
+  summarize(has_stroke = max((condition == "stroke"))) %>%
+  summarize(has_hypertension = max((condition == "hypertension"))) %>%
+  summarize(has_COPD = max((condition == "COPD")))
 
+test %>%
+  filter(has_diabetes == 1) %>%
+  summarize(count = n_distinct(patid2))
 
-health %>%
-  group_by(patid) %>%
-  dplyr::summarise(has_LD = max((condition == "liverdisease")))
-
-%>% 
-  mutate(has_liverdisease = max((condition == "liverdisease"))) %>%
-  mutate(has_dementia = max((condition == "dementia"))) %>%
-  mutate(has_stroke = max((condition == "stroke"))) %>%
-  mutate(has_hypertension = max((condition == "hypertension"))) %>%
-  mutate(has_COPD = max((condition == "COPD")))
-
-health %>%
-  unique() %>%
-  filter(has_hypertension == 1) %>%
-  summarize(count = n_distinct(patid))
+source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
+crosstab(health, row.vars = "condition", col.vars = "patid", type = "f")
 
 health$diseases <- case_when((health$has_diabetes * health$has_stroke * health$has_liverdisease * health$has_COPD * health$has_dementia * health$has_hypertension) == 1 ~ 1, 
                              (health$has_diabetes * health$has_stroke * health$has_liverdisease * health$has_COPD * health$has_dementia) == 1 ~ 2,
@@ -118,3 +112,8 @@ health %>%
   group_by(patid, condition) %>%
   summarize(earliest_flagged_visit = min(evdaterealdate)) 
 
+#split dataset into test and train
+train <- health %>% dplyr::sample_frac(.75)
+test  <- dplyr::anti_join(health, train, by = 'patid')
+view(train)
+view(test)

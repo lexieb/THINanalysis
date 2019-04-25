@@ -102,7 +102,8 @@ health$regdatereal <- as.Date(strptime(health$regdate,format='%Y%m%d', tz = "GMT
 
 #calculate difference between registation date and earliest of xferdate or deatdate 
 leaving_date <- min(health$deathdaterealdate, health$xferrealdate)
-
+starting_date <- 
+time_in_dataset <- difftime(leaving_date, starting_date, "GMT", units = "auto")
 
 #drop patients without any of the specified diseases/MM
 health <- subset(health, diseases != 0)

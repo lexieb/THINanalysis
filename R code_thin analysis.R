@@ -17,7 +17,7 @@ patid <- c(1, 2, 3, 4, 4, 5)
 condition <- c("breastcancer", "diabetes", "chd", "stroke", "diabetes", "none")
 duration <- c(40, 5, 5, 4, 3, 5)
 age <- c(3, 5, 6, 7, 8, 9)
-health <- data_frame(age, condition, duration, patid)
+health <- tibble(age, condition, duration, patid)
 
 health <- data_frame(age, condition, duration, patid, realconsultationdate)
 health$patid <- as.numeric(patid)

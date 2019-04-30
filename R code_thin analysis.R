@@ -43,7 +43,6 @@ health$condition <- case_when(health$medcode %in% diabetes_codes1 ~ "diabetes",
 
 health$patid2 <- as.character(health$patid)
 
-#this isn't working
 test <- health %>%
   group_by(patid2) %>%
   summarize(has_diabetes = max((condition  == "diabetes"))) %>%
@@ -113,8 +112,24 @@ health %>%
   group_by(patid, condition) %>%
   summarize(earliest_flagged_visit = min(evdaterealdate)) 
 
+#create variable consultation_year
+
+#annual cost per patient year disease
+health %>% 
+group_by(patid, condition, consultation_year) 
+mutate(annual_cost = sum(duration) * 34))
+
 #split dataset into test and train
 train <- health %>% dplyr::sample_frac(.75)
 test  <- dplyr::anti_join(health, train, by = 'patid')
 view(train)
 view(test)
+
+cv <- xgb.cv(data = as.matrix(health.treated), label = annual_cost, objective = "reg:logistic", nrounds = 100, nfold = 5, eta = 0.3, depth = 6)
+elog <- as.data.frame(cv$evaluation_log) 
+nrounds <- which.min(elog$test_rmse_mean)
+
+model <- xgboost(data = as.matrix(health.treated), label = annual_cost, objective = "reg:logistic", nrounds = nrounds, eta = 0.3, depth = 6) 
+
+health$pred <- predict(model, as.matrix(health.treated)) 
+

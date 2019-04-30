@@ -52,13 +52,13 @@ test <- health %>%
   summarize(has_hypertension = max((condition == "hypertension"))) %>%
   summarize(has_COPD = max((condition == "COPD")))
 
+
+#count the number of patients with each condition
 test %>%
   filter(has_diabetes == 1) %>%
   summarize(count = n_distinct(patid2))
 
-source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
-crosstab(health, row.vars = "condition", col.vars = "patid", type = "f")
-
+#create a unique variable indicating which condition/MM a patient has - note this is impossible with this many diseases - over 700 combinations exist
 health$diseases <- case_when((health$has_diabetes * health$has_stroke * health$has_liverdisease * health$has_COPD * health$has_dementia * health$has_hypertension) == 1 ~ 1, 
                              (health$has_diabetes * health$has_stroke * health$has_liverdisease * health$has_COPD * health$has_dementia) == 1 ~ 2,
                              health$has_diabetes * health$has_stroke * health$has_liverdisease * health$has_COPD  * health$has_hypertension
@@ -88,42 +88,44 @@ health %>%
   group_by(diseases2) %>% 
   summarize(count = n_distinct(patid))
 
-#format evdatereal, regdate, deathdate, and xferdate
-health$evdatereal[health$evdatereal == 0] <- NA
-health$xferdate[health$xferdate == 0] <- NA
-health$regdate[health$regdate == 0] <- NA
-health$deathdate[health$deathdate ==0] <- NA
-health$evdaterealdate <- as.Date(strptime(health$evdatereal,format='%Y%m%d', tz = "GMT"))
-health$deathdaterealdate <- as.Date(strptime(health$deathdate,format='%Y%m%d', tz = "GMT"))
-health$xferrealdate <- as.Date(strptime(health$xferdate,format='%Y%m%d', tz = "GMT"))
-health$regdatereal <- as.Date(strptime(health$regdate,format='%Y%m%d', tz = "GMT"))
+#format evdatereal, regdate, deathdate, startdate and xferdate
+health$evdatereal <- as.Date(strptime(health$evdatereal,format='%Y%m%d', tz = "GMT"))
+health$deathdre <- as.Date(strptime(health$deathdate,format='%Y%m%d', tz = "GMT"))
+health$xferdate <- as.Date(strptime(health$xferdate,format='%Y%m%d', tz = "GMT"))
+health$regdate <- as.Date(strptime(health$regdate,format='%Y%m%d', tz = "GMT"))
+health$startdate <- as.Date(strptime(health$startdate,format='%Y%m%d', tz = "GMT"))
 
 
 #calculate difference between registation date and earliest of xferdate or deatdate 
 leaving_date <- min(health$deathdaterealdate, health$xferrealdate)
-starting_date <- 
-time_in_dataset <- difftime(leaving_date, starting_date, "GMT", units = "auto")
+time_in_dataset <- difftime(leaving_date, startdate, "GMT", units = "years")
 
-#drop patients without any of the specified diseases/MM
-health <- subset(health, diseases != 0)
+#drop patients with less than 10 years spent in dataset - note: check units worked properly
+health$new <- subset(health, time_in_dataset >= 10 )
 
 # earliest consultation per patient per disease
 health %>% 
   group_by(patid, condition) %>%
-  summarize(earliest_flagged_visit = min(evdaterealdate)) 
+  mutate(earliest_flagged_visit = min(evdatereal)) 
 
 #create variable consultation_year
+health$cons_year <- evdatereal %>%
+format('%Y')%>%
+as.numeric 
+
+
+#Duration recorded as hhmmss (hours minutes seconds) - change to code as minutes
+health$duration_recoded <- strtoi(as.difftime(health$duration, format = "%H%M%S", units = "mins"))
+health$duration_recoded <- case_when(health$duration_recoded < 0.5 ~ 0, health$duration_recoded <= 1 ~ 1, TRUE ~ health$duration_recoded) 
 
 #annual cost per patient year disease
 health %>% 
-group_by(patid, condition, consultation_year) 
-mutate(annual_cost = sum(duration) * 34))
+group_by(patid, condition, cons_year)  %>%
+mutate(annual_cost = sum(duration_recoded) * 219.0/60.0))
 
-#split dataset into test and train
-train <- health %>% dplyr::sample_frac(.75)
-test  <- dplyr::anti_join(health, train, by = 'patid')
-view(train)
-view(test)
+#note = £219 is hourly cost of GP patient time, including qualification cost, excluding direct care staff costs, based on https://www.pssru.ac.uk/pub/uc/uc2018/community-based-health-care-staff.pdf, 2016/17 price year
+
+
 
 cv <- xgb.cv(data = as.matrix(health.treated), label = annual_cost, objective = "reg:logistic", nrounds = 100, nfold = 5, eta = 0.3, depth = 6)
 elog <- as.data.frame(cv$evaluation_log) 

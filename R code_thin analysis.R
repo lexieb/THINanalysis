@@ -118,12 +118,23 @@ as.numeric
 health$duration_recoded <- strtoi(as.difftime(health$duration, format = "%H%M%S", units = "mins"))
 health$duration_recoded <- case_when(health$duration_recoded < 0.5 ~ 0, health$duration_recoded <= 1 ~ 1, TRUE ~ health$duration_recoded) 
 
-#annual cost per patient year disease
+#annual cost per patient year disease. £219 is hourly cost of GP patient time, including qualification cost, excluding direct care staff costs, based on https://www.pssru.ac.uk/pub/uc/uc2018/community-based-health-care-staff.pdf, 2016/17 price year
+
 health %>% 
 group_by(patid, condition, cons_year)  %>%
 mutate(annual_cost = sum(duration_recoded) * 219.0/60.0))
 
-#note = £219 is hourly cost of GP patient time, including qualification cost, excluding direct care staff costs, based on https://www.pssru.ac.uk/pub/uc/uc2018/community-based-health-care-staff.pdf, 2016/17 price year
+#xgboost doesn't accept categorical variables. Need to use vtreat. Need cleaned data that is all numerical with no missing values.
+library(vtreat)
+vars <- c("condition", "age", "sex", ... )
+treatplan <- designTreatmentsZ(health_training, vars)
+scoreFrame <- treatplan %>%
+    use_series(scoreFrame) %>%
+    select(varName, origName, code)
+newvars <- scoreFrame %>%
+    filter(code %in% c("clean", "lev")) %>%
+    use_series(varName)
+health_training_treat <- prepare(treatplan, health_training, varRestriction = newvars))
 
 
 

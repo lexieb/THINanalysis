@@ -44,6 +44,8 @@ CASE
 	  END as startdate
 and startdate <= 01/01/2007;
 
+test test
+
 
 
 

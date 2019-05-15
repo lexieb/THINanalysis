@@ -3,7 +3,7 @@
 install.packages("devtools") 
 devtools::install_git('https://gitlab.phe.gov.uk/packages/DataLakeR') 
 library(DataLakeR)
-install.packages("tidyverse")
+
 library(tidyverse)
 
 
@@ -42,30 +42,23 @@ health$condition <- case_when(health$medcode %in% diabetes_codes1 ~ "diabetes",
 
 health$patid <- as.character(health$patid)
 
-#this is the bit that is going wrong
+health$patid.full <- paste(health$patid, health$prac, sep="_")
+
 health <- health %>%
-  group_by(patid, prac) %>%
-  summarize(has_diabetes = max((health$condition  == "diabetes"))) %>%
-  summarize(has_liverdisease = max((health$condition == "liverdisease"))) %>%
-  summarize(has_dementia = max((health$condition == "dementia"))) %>%
-  summarize(has_stroke = max((health$condition == "stroke"))) %>%
-  summarize(has_hypertension = max((health$condition == "hypertension"))) %>%
-  summarize(has_COPD = max((health$condition == "COPD")))
+  group_by(patid.full) %>%
+  mutate(has_diabetes = max(condition  == "diabetes")) %>%
+  mutate(has_liverdisease = max((condition == "liverdisease"))) %>%
+  mutate(has_dementia = max((condition == "dementia"))) %>%
+  mutate(has_stroke = max((condition == "stroke"))) %>%
+  mutate(has_hypertension = max((condition == "hypertension"))) %>%
+  mutate(has_COPD = max((condition == "COPD")))
 
 
-#this isn't working - count the number of patients with each condition
+#count the number of patients with each condition
 health %>%
-  group_by(patid, prac) %>%
-  filter(has_diabetes == 1) %>%
-  summarize(count = n_distinct(patid2, prac))
+  group_by(has_dementia) %>%
+  summarize(count = n_distinct(patid.full))
     
-    
-    
-  )
-  filter(health$has_diabetes == 1) %>%
-  group_by(condition, patid2) %>%
-  summarize(count = n_distinct(patid2))
-
 
 #format evdatereal (check this one), regdate, deathdate, startdate and xferdate
 health$evdatereal1 <- as.Date(strptime(health$evdatereal,format='%Y-%m-%d', tz = "GMT"))
@@ -88,18 +81,34 @@ health$time_in_dataset <- difftime(health$leaving_date, health$startdate1, "GMT"
 #drop patients with less than 10 years spent in dataset - note: check units worked properly
 health <- subset(health, time_in_dataset >= 3650)
 
-# earliest consultation per patient per disease - works
+# earliest consultation per patient per disease 
 health <- health %>% 
-  group_by(patid2, condition) %>%
-  mutate(earliest_flagged_visit = min(evdatereal1)) 
+  group_by(condition, patid.full) %>%
+  mutate(earliest_consultation = min(evdatereal1)) 
 
-
+#time_since_last_cons
+health <- health %>% 
+  group_by(condition, patid.full) %>%
+  mutate(time_since_last_cons_days = as.numeric(evdatereal1 - earliest_consultation))
 
 #create variable consultation_year - works
 health$cons_year <- health$evdatereal1 %>%
   format('%Y')%>%
   as.numeric 
-view(health)
+
+#create variable death_year
+health$death_year <- health$deathdte1 %>% 
+  format('%Y') %>% 
+  as.numeric 
+
+#whether patient died that year
+health$died_year <- case_when(health$death_year == health$cons_year ~ 1, TRUE ~ 0)
+
+#check whether this works
+health <- health %>%
+  group_by(patid.full) %>%
+  arrange(evdatereal1) %>%
+  mutate(cum_unique_conditions = dense_rank(desc(condition)))
 
 
 #Duration recorded as hhmmss (hours minutes seconds) - change to code as minutes - doesn't work
@@ -107,43 +116,100 @@ health$duration_new <-formatC(health$duration, width = 6, format = "d", flag = "
 health$duration_new_recoded <- as.POSIXct(health$duration_new, format="%H%M%S")
 health$timebaseline <- as.POSIXct("000000", format = "%H%M%S")
 health$duration_inseconds <- as.numeric(health$duration_new_recoded - health$timebaseline)
-view(health)
 
 
 #health$duration_recoded <- case_when(health$duration_recoded < 0.5 ~ 0, health$duration_recoded <= 1 ~ 1, TRUE ~ health$duration_recoded) 
-view(health)
+
 
 #doesn't seem to be working properly for calculating annual cost! 
 #annual cost per patient year disease. Â£219 is hourly cost of GP patient time, including qualification cost, excluding direct care staff costs, based on https://www.pssru.ac.uk/pub/uc/uc2018/community-based-health-care-staff.pdf, 2016/17 price year
+#health <- health %>% 
+ # group_by(patid.full, cons_year)  %>%
+  #mutate(annual_cost = (sum(duration_inseconds) * 219.0/3600))
+
 health <- health %>% 
-  group_by(patid2, prac, condition, cons_year)  %>%
-  mutate(annual_cost = (sum(duration_inseconds) * 219.0/3600))
+  group_by(patid.full, cons_year) %>%
+  arrange(evdatereal1) %>%
+  mutate(cumulative_annual_cost = cumsum(duration_inseconds) * 219.0/3600)
 
 #create time since diagnosis variable
 health <- health %>% 
-  group_by(patid2, condition) %>% 
-  mutate(time_since_diagnosis = as.numeric(evdatereal1 - earliestflaggedvisit)
+  group_by(patid.full, condition) %>% 
+  mutate(time_since_diagnosis = as.numeric(evdatereal1 - earliest_consultation))
          
-view(health)         
-         #xgboost doesn't accept categorical variables. Need to use vtreat. Need cleaned data that is all numerical with no missing values.
-         library(vtreat)
-         vars <- c("condition", "age", "sex", ... )
-         treatplan <- designTreatmentsZ(health_training, vars)
-         scoreFrame <- treatplan %>%
-           use_series(scoreFrame) %>%
+health <- health %>%
+  group_by(cons_year) %>%
+  mutate(day_year_end = paste("31/12", cons_year, sep = "/", collapse = NULL))
+
+health$day_year_end <- as.Date(strptime(health$day_year_end,format='%d/%m/%Y', tz = "GMT"))
+
+health <- health %>%
+  group_by(cons_year) %>%
+  mutate(time_to_year_end = as.numeric(day_year_end - evdatereal1))
+
+
+#end of creating relevant variables
+
+install.packages("vtreat")
+#xgboost doesn't accept categorical variables. Need to use vtreat. Need cleaned data that is all numerical with no missing values.
+library(vtreat)
+         vars <- c("condition", "pracid", "white", "mix", "asian", "black", "cumulative_annual_cost", "other", "town", "dob", "smoking", "bmi", "alcohol", "sex", "evdatereal1", "time_since_last_cons_days", "died_year", "cum_unique_conditions", "time_to_year_end")
+         treatplan <- designTreatmentsZ(health, vars)
+         
+         scoreFrame <- treatplan %>% 
+           magrittr::use_series(scoreFrame) %>% 
            select(varName, origName, code)
+         
          newvars <- scoreFrame %>%
            filter(code %in% c("clean", "lev")) %>%
-           use_series(varName)
-         health_training_treat <- prepare(treatplan, health_training, varRestriction = newvars))
+           magrittr::use_series(varName)
+         
+         health_treated <- prepare(treatplan, health, varRestriction = newvars)
 
+        #health_treated is now the final dataset - it has more variables
 #could do cross-validation with sample of data, then test the best performing xgboost model 
+         
+         install.packages("xgboost")
+         library(xgboost)
 
-
-cv <- xgb.cv(data = as.matrix(health.treated), label = annual_cost, objective = "reg:logistic", nrounds = 100, nfold = 5, eta = 0.3, depth = 6)
-elog <- as.data.frame(cv$evaluation_log) 
-nrounds <- which.min(elog$test_rmse_mean) #add train rmse (or absolute error)
-
+         subsample <- seq(from=0.6, to=1, by=0.2)
+         eta <- c(0.1, 0.05, 0.01)
+         depth <- seq(from=6, to=10, by=2)
+         nrounds <- 1000
+         # use expand.grid to create a dataframe of possible parameter combinations
+         param_grid <- expand.grid(subsample = subsample, 
+                                   colsample = subsample,                        
+                                   depth = depth,                          
+                                   eta = eta)
+         # shuffle the parameter dataframe for random order
+         param_grid <- param_grid[sample(nrow(param_grid)),]
+         # initiate a results list
+         results = list()
+         # make a loop for training/testing your model
+         for(i in 1:nrow(param_grid)){
+           # create a parameter list to feed into xgb.cv (expects list class)  
+           params <- list(booster = "gbtree",
+                          objective = "reg:linear",
+                          eta = param_grid[i,"eta"], 
+                          max_depth = param_grid[i,"depth"],   
+                          subsample = param_grid[i,"subsample"],
+                          colsample_bytree = param_grid[i,"colsample"]) }
+         xgbcv <- xgb.cv(params = params, 
+                         label = health_treated$cumulative_annual_cost,
+                         data= as.matrix(health_treated), 
+                         nrounds = nrounds, 
+                         depth = depth,
+                         nfold = 5)
+         
+         logs <- as.data.frame(cv$evaluation_log)
+         
+         
+         results[[i]] = data.frame(params,                           
+                                   rounds = nrow(logs),                            
+                                   test_mse = logs[nrow(logs), "test_rmse_mean"],
+                                   train_mse = logs[nrow(logs), "train_rmse_mean"]) 
+         results_df <- dplyr::bind_rows(results)
+         
 #grid search eta, nrounds, depth - function called expand grid
 #early stopping - if rounds haven't improved performance after x rounds
 #verbose = 1
@@ -159,7 +225,6 @@ model <- xgboost(data = as.matrix(health.treated), label = annual_cost, objectiv
 health$pred <- predict(model, as.matrix(health.treated)) 
 
 
-#time since last consultation
-# time to end of year
+
 # how to deal with patients who haven't come in for a consultation in that year? - seed learn
-# whether they died in that year 
+# have we only picked up consultations for these diseases or all consultations for patients with these diseases? 

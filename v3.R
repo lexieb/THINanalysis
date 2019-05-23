@@ -8,7 +8,7 @@ library(tidyverse)
 
 
 #Get data back from the lake
-health <- get_datalake("SELECT * FROM THIN_Analysis.dbo.AleksandraBlawat_patients_sample5")
+#health <- get_datalake("SELECT * FROM THIN_Analysis.dbo.AleksandraBlawat_patients_sample5")
 #patients_sample5 has 7.8m observations
 health <- get_datalake("SELECT * FROM THIN_Analysis.dbo.AleksandraBlawat_patients_full1")
 
@@ -94,7 +94,6 @@ health %>%
   filter(has_dementia == 1 & has_diabetes == 1) %>%
   summarize(count = n_distinct(patid.full))
 
-
 # tidyr to pivot data - transform condition columns into column of categories and then yes/no
 
 
@@ -166,6 +165,23 @@ health <- health %>%
 
 health$bmi <- as.numeric(health$bmi)
 
+#plot distributions
+ggplot(health, aes(cumulative_annual_cost)) + geom_density()
+ggplot(health, aes(bmi)) + geom_density()
+mean(health$bmi)
+health$bmi_nonmissing <- health$bmi
+health$bmi_nonmissing[is.na(health$bmi_nonmissing)] <- 0.00     
+mean(bmi_nonmissing)
+max(bmi_nonmissing)
+health$bmi_nonmissing <- bmi_nonmissing
+ggplot(health[health$cumulative_annual_cost < 1000, ], aes(cumulative_annual_cost)) + geom_histogram()
+min(bmi_nonmissing)
+health %>%
+  ungroup() %>%
+  filter(bmi_nonmissing == 0) %>%
+  summarize(count = n_distinct(patid.full))
+
+
 #check for negative
 health <- health %>%
   group_by(patid.full) %>% 
@@ -177,10 +193,33 @@ health$pracid2 <- health$pracid1$id
 
 
 #end of creating relevant variables
+#summary stats
+
+combn(list(health$has_dementia, health$has_COPD, health$has_diabetes, health$has_liverdisease, health$has_stroke, health$has_hypertension), 2)
+
+combination <- combn(list("dog", "cat", "bear", "owl"), 2)
+length(combination[1,])
+for (i in 1:length(combination[1,])) {
+  group by patientid
+  print("new combination")
+  print(combination[1,i])
+  print(combination[2,i])}
+
+count(i) = 0
+if health[combination[1,i]] == 1 and if health[combination[2,i]] == 1
+then add to count(i)
+
+myvariable <- health %>%
+  select(column)
+
+
 
 
 #xgboost doesn't accept categorical variables. Need to use vtreat. Need cleaned data that is all numerical with no missing values.
-vars <- c("condition", "pracid2", "white", "town", "mix", "asian", "black", "other", "age", "smoking", "bmi", "alcohol", "sex", "evdatereal1", "time_since_first_cons_days", "died_year", "cum_unique_conditions", "time_to_year_end")
+vars <- c("condition", 
+          "pracid2", 
+          "cumulative_annual_cost", 
+          "white", "town", "mix", "asian", "black", "other", "age", "smoking", "bmi", "alcohol", "sex", "evdatereal1", "time_since_first_cons_days", "died_year", "cum_unique_conditions", "time_to_year_end")
 treatplan <- designTreatmentsZ(health, vars)
 
 scoreFrame <- treatplan %>% 
@@ -221,8 +260,8 @@ for(i in 1:nrow(param_grid)){
                  subsample = param_grid[i,"subsample"],
                  colsample_bytree = param_grid[i,"colsample"]) 
   xgbcv <- xgb.cv(params = params, 
-                  label = health$cumulative_annual_cost,
-                  data= as.matrix(health_treated), 
+                  label = health_treated$cumulative_annual_cost,
+                  data= as.matrix(health_treated %>% select(-cumulative_annual_cost)), 
                   nrounds = nrounds, 
                   depth = depth,
                   nfold = 5,
@@ -253,7 +292,7 @@ view(results_df)
 results_df <- results_df %>%
   mutate(diff = test_mse - train_mse)
 
-model <- xgboost(data = as.matrix(health_treated), label = health$cumulative_annual_cost, objective = "reg:linear", nrounds = 1000, eta = 0.01, depth = 8, subsample = 0.8, colsample_bytree = 1.0) 
+model <- xgboost(data = as.matrix(health_treated %>% select(-cumulative_annual_cost)), label = health_treated$cumulative_annual_cost, objective = "reg:linear", nrounds = 1000, eta = 0.01, depth = 8, subsample = 0.8, colsample_bytree = 1.0) 
 #plot importances
 #test with cross-validation - test on 20% using early stopping rounds and optimal parameters
 

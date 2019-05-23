@@ -148,6 +148,9 @@ health <- health %>%
   arrange(evdatereal1) %>%
   mutate(cumulative_annual_cost = cumsum(duration_inseconds) * 219.0/3600)
 
+health$duration_inseconds[health$duration_inseconds > 3600] <- 3600
+max(health$duration_inseconds, na.rm = TRUE)
+
 #create time since diagnosis variable
 health <- health %>% 
   group_by(patid.full, condition) %>% 
@@ -164,28 +167,27 @@ health <- health %>%
   mutate(time_to_year_end = as.numeric(day_year_end - evdatereal1))
 
 health$bmi <- as.numeric(health$bmi)
+health$bmi[health$bmi >= 100] <- NA
 
-#plot distributions
-ggplot(health, aes(cumulative_annual_cost)) + geom_density()
+#plot distributions + QA
+ggplot(health, aes(duration_inseconds)) + geom_histogram() + xlim(c(0,3000))
 ggplot(health, aes(bmi)) + geom_density()
-mean(health$bmi)
-health$bmi_nonmissing <- health$bmi
-health$bmi_nonmissing[is.na(health$bmi_nonmissing)] <- 0.00     
-mean(bmi_nonmissing)
-max(bmi_nonmissing)
-health$bmi_nonmissing <- bmi_nonmissing
-ggplot(health[health$cumulative_annual_cost < 1000, ], aes(cumulative_annual_cost)) + geom_histogram()
-min(bmi_nonmissing)
+
+ggplot(health, aes(age)) + geom_histogram() 
+
 health %>%
   ungroup() %>%
-  filter(bmi_nonmissing == 0) %>%
+  filter(cumulative_annual_cost > 1000) %>%
   summarize(count = n_distinct(patid.full))
 
 
+sample <- head(health)  
+  
 #check for negative
 health <- health %>%
   group_by(patid.full) %>% 
   mutate(age = as.numeric(evdatereal1 - dob1))
+health$age[health$age < 0] <- NA
 
 #unique number for each unique practid
 health$pracid1 <- transform(health$pracid,id=as.numeric(factor(health$pracid)))
@@ -219,7 +221,22 @@ myvariable <- health %>%
 vars <- c("condition", 
           "pracid2", 
           "cumulative_annual_cost", 
-          "white", "town", "mix", "asian", "black", "other", "age", "smoking", "bmi", "alcohol", "sex", "evdatereal1", "time_since_first_cons_days", "died_year", "cum_unique_conditions", "time_to_year_end")
+          "white", 
+          "town", 
+          "mix", 
+          "asian", 
+          "black", 
+          "other", 
+          "age", 
+          "smoking", 
+          "bmi", 
+          "alcohol", 
+          "sex", 
+          "evdatereal1", 
+          "time_since_first_cons_days", 
+          "died_year", 
+          "cum_unique_conditions", 
+          "time_to_year_end")
 treatplan <- designTreatmentsZ(health, vars)
 
 scoreFrame <- treatplan %>% 

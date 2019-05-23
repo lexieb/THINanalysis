@@ -1,6 +1,6 @@
 #install and load packages
 
- 
+
 library(xgboost)
 library(DataLakeR)
 library(vtreat)
@@ -9,8 +9,9 @@ library(tidyverse)
 
 #Get data back from the lake
 #health <- get_datalake("SELECT * FROM THIN_Analysis.dbo.AleksandraBlawat_patients_sample5")
-#patients_sample5 has 7.8m observations
+#patients_sample5 has 7.8m observations 
 health <- get_datalake("SELECT * FROM THIN_Analysis.dbo.AleksandraBlawat_patients_full1")
+#32m observations of 1.8m people
 
 #format evdatereal (check this one), regdate, deathdate, startdate and xferdate
 health$evdatereal1 <- as.Date(strptime(health$evdatereal,format='%Y-%m-%d', tz = "GMT"))
@@ -182,7 +183,7 @@ health %>%
 
 
 sample <- head(health)  
-  
+
 #check for negative
 health <- health %>%
   group_by(patid.full) %>% 
@@ -199,23 +200,36 @@ health$pracid2 <- health$pracid1$id
 
 combn(list(health$has_dementia, health$has_COPD, health$has_diabetes, health$has_liverdisease, health$has_stroke, health$has_hypertension), 2)
 
-combination <- combn(list("dog", "cat", "bear", "owl"), 2)
+has_dog <- c(0, 0, 0, 0, 1)                                                                                                                                                                                                                                                                           
+has_cat <- c(1, 1, 1, 1, 0)
+has_bear <- c(0, 0, 0, 0, 1)
+has_owl <- c(1, 1, 1, 1, 0)
+patid <- c(1, 1, 2, 2, 3)
+
+animals <- data.frame(has_dog, has_cat, has_bear, has_owl, patid)
+
+combination <- combn(list("has_dog", "has_cat", "has_bear", "has_owl"), 2)
 length(combination[1,])
-for (i in 1:length(combination[1,])) {
-  group by patientid
-  print("new combination")
+for (i in 1:length(combination[1,]))
+{
   print(combination[1,i])
-  print(combination[2,i])}
-
-count(i) = 0
-if health[combination[1,i]] == 1 and if health[combination[2,i]] == 1
-then add to count(i)
-
-myvariable <- health %>%
-  select(column)
-
+  print("and")
+  print(combination[2,i])
+  print(nrow(animals %>% 
+    group_by(patid) %>% 
+    filter(combination[1,i] == 1, combination[2,i] == 1) %>% 
+    summarize(count = n_distinct(patid)) ))
+}   
 
 
+
+nrow(animals %>%
+  group_by(patid) %>%
+  filter(has_cat ==1, has_owl ==1) %>%
+  summarize(count = n_distinct(patid)))
+
+
+nrows
 
 #xgboost doesn't accept categorical variables. Need to use vtreat. Need cleaned data that is all numerical with no missing values.
 vars <- c("condition", 

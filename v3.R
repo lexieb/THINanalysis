@@ -168,7 +168,7 @@ health <- health %>%
   mutate(time_to_year_end = as.numeric(day_year_end - evdatereal1))
 
 health$bmi <- as.numeric(health$bmi)
-health$bmi[health$bmi >= 100] <- NA
+health$bmi[health$bmi >= 70] <- NA
 
 #plot distributions + QA
 ggplot(health, aes(duration_inseconds)) + geom_histogram() + xlim(c(0,3000))
@@ -182,7 +182,6 @@ health %>%
   summarize(count = n_distinct(patid.full))
 
 
-sample <- head(health)  
 
 #check for negative
 health <- health %>%
@@ -198,38 +197,6 @@ health$pracid2 <- health$pracid1$id
 #end of creating relevant variables
 #summary stats
 
-combn(list(health$has_dementia, health$has_COPD, health$has_diabetes, health$has_liverdisease, health$has_stroke, health$has_hypertension), 2)
-
-has_dog <- c(0, 0, 0, 0, 1)                                                                                                                                                                                                                                                                           
-has_cat <- c(1, 1, 1, 1, 0)
-has_bear <- c(0, 0, 0, 0, 1)
-has_owl <- c(1, 1, 1, 1, 0)
-patid <- c(1, 1, 2, 2, 3)
-
-animals <- data.frame(has_dog, has_cat, has_bear, has_owl, patid)
-
-combination <- combn(list("has_dog", "has_cat", "has_bear", "has_owl"), 2)
-length(combination[1,])
-for (i in 1:length(combination[1,]))
-{
-  print(combination[1,i])
-  print("and")
-  print(combination[2,i])
-  print(nrow(animals %>% 
-    group_by(patid) %>% 
-    filter(combination[1,i] == 1, combination[2,i] == 1) %>% 
-    summarize(count = n_distinct(patid)) ))
-}   
-
-
-
-nrow(animals %>%
-  group_by(patid) %>%
-  filter(has_cat ==1, has_owl ==1) %>%
-  summarize(count = n_distinct(patid)))
-
-
-nrows
 
 #xgboost doesn't accept categorical variables. Need to use vtreat. Need cleaned data that is all numerical with no missing values.
 vars <- c("condition", 
@@ -282,6 +249,17 @@ param_grid <- param_grid[sample(nrow(param_grid)),]
 # initiate a results list
 results = list()
 # make a loop for training/testing your model
+#use function stratified to use a selection of patients to train the model 
+# splitstackshape or sample_n from dplyr
+
+vartypes <- sapply(health_treated, typeof)
+upload_to_datalake(df, "THIN_Analysis", "LB_DataLakeR_heath_treated", vartypes, append = FALSE)
+
+health_treated_sample <- health_treated %>% 
+  group_by(patid.full, cons_year) %>% 
+  sample_frac(0.001) %>%
+  ungroup()
+
 for(i in 1:nrow(param_grid)){
   # create a parameter list to feed into xgb.cv (expects list class)  
   params <- list(booster = "gbtree",
@@ -291,8 +269,8 @@ for(i in 1:nrow(param_grid)){
                  subsample = param_grid[i,"subsample"],
                  colsample_bytree = param_grid[i,"colsample"]) 
   xgbcv <- xgb.cv(params = params, 
-                  label = health_treated$cumulative_annual_cost,
-                  data= as.matrix(health_treated %>% select(-cumulative_annual_cost)), 
+                  label = health_treated_sample$cumulative_annual_cost,
+                  data= as.matrix(health_treated_sample %>% select(-cumulative_annual_cost)), 
                   nrounds = nrounds, 
                   depth = depth,
                   nfold = 5,
@@ -304,7 +282,9 @@ for(i in 1:nrow(param_grid)){
   results[[i]] = data.frame(params,                           
                             rounds = nrow(logs),                            
                             test_mse = logs[nrow(logs), "test_rmse_mean"],
-                            train_mse = logs[nrow(logs), "train_rmse_mean"]) }
+                            train_mse = logs[nrow(logs), "train_rmse_mean"]) 
+  gc(verbose = FALSE, full = TRUE)
+  }
 results_df <- dplyr::bind_rows(results)
 
 #grid search eta, nrounds, depth - function called expand grid

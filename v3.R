@@ -27,18 +27,13 @@ health$leaving_date <- with(health, pmin(xferdate1, deathdte1))
 #default leaving date for those still in dataset
 health$leaving_date[is.na(health$leaving_date)] <- "2018-09-30"
 
-
 #calculate difference between start and end time in dataset 
 health$time_in_dataset <- difftime(health$leaving_date, health$startdate1, "GMT", units = "days")
-
 
 #drop patients with less than 10 years spent in dataset - note: check units worked properly
 health <- subset(health, time_in_dataset >= 3650)
 
-
-
 #display medical codes as diseases
-
 diabetes_codes1 <- c('001434' , '14F4.00' , '14O8.00' , '14O8000' , '1I0..00' , '1IA..00' , '1JL..00' , '1M8..00' , '2126300' , '212H.00' , '2BBF.00' , '2BBG.00' , '2BBJ.00' , '2BBK.00' , '2BBL.00' , '2BBM.00', '2BBP.00' , '2BBQ.00' , '2BBR.00' , '2BBS.00' , '2BBT.00' , '2BBV.00' , '2BBW.00' , '2BBX.00' , '2BBk.00', '2BBl.00' , '2BBo.00' , '2BBr.00' , '2G51000' , '2G51100' , '2G5A.00' , '2G5B.00' , '2G5C.00' , '2G5D.00' , '2G5E.00' , '2G5F.00' , '2G5G.00' , '2G5H.00' , '2G5I.00' , '2G5J.00' , '2G5K.00' , '2G5L.00' , '2G5V.00' , '2G5W.00' , '2G5d.00' , '2G5e.00' , '3881' , '3882' , '3883' , '38DK.00' , '38DM.00' , '38Gj.00' , '38Gv.00' , '42W..00' , '42WZ.00' , '42c..00' , '44V3.00' , '46Z0.00' , '661M400' , '661N400' , '66A..00' , '66A1.00' , '66A2.00' , '66A3.00' , '66A4.00' , '66A5.00' , '66A8.00' , '66A9.00' , '66AA.11' , '66AD.00' , '66AG.00' , '66AH.00' , '66AH200' , '66AI.00' , '66AJ.00' , '66AJ.11' , '66AJ100' , '66AJz00' , '66AK.00' , '66AL.00' , '66AM.00' , '66AN.00' , '66AO.00' , '66AP.00' , '66AQ.00' , '66AQ000' , '66AQ100' , '66AR.00' , '66AS.00' , '66AS000' , '66AT.00' , '66AU.00' , '66AV.00' , '66AW.00' , '66AX.00' , '66AY.00' , '66AZ.00' , '66Aa.00' , '66Ab.00' , '66Ac.00' , '66Af.00' , '66Ai.00' , '66Ak.00' , '66Al.00' , '66An.00' , '66Ao.00' , '66Aq.00' , '66As.00' , '66At.00' , '66At000' , '66At011' , '66At100' , '66At111' , '66Au.00' , '66Av.00' , '66Ay.00' , '66Az.00' , '66b1.00' , '66o..00' , '66o1.00' , '66o2.00' , '66o5.00' , '66o6.00' , '6761' , '679L.00' , '679L000' , '679L200' , '679L211' , '679L300' , '679R.00' , '679l.00' , '67D8.00' , '67H9.00' , '67HA.00' , '67IJ100' , '67W1.00' , '6872' , '68A7.00' , '68A9.00' , '68AB.00' , '7276' , '8A12.00' , '8A13.00')
 diabetes_codes4 <- c('8B3l.00' , '8BL2.00' , '8CA4100' , '8CE0.00' , '8CE0000' , '8CMW700' , '8CP2.00' , '8CR2.00' , '8CS0.00' , '8H2J.00' , '8H3O.00' , '8H4F.00' , '8H4e.00' , '8H7C.00' , '8H7f.00' , '8H7r.00' , '8HBG.00' , '8HBH.00' , '8HHy.00' , '8HKE.00' , '8HLE.00' , '8HME.00' , '8HTE100' , '8HTe.00' , '8HTi.00' , '8HTk.00' , '8HVU.00' , '8Hg4.00')
 diabetes_codes6 <- c('8HgC.00' , '8Hgd.00' , '8Hj0.00' , '8Hj1.00' , '8Hj3.00' , '8Hj4.00' , '8Hj5.00' , '8Hl1.00' , '8Hl4.00' , '8Hlc.00' , '8I3W.00' , '8I3X.00' , '8I57.00' , '8I6F.00' , '8I6G.00' , '8I81.00' , '8I82.00' , '8I83.00' , '8I84.00' , '8I94.00' , '8IAs.00' , '8IE2.00' , '8IEQ.00' , '8IEa.00' , '8OA3.00' , '8OAH.00' , '8OAK.00' , '918T.00' , '9360' , '93C4.00' , '9M00.00' , '9M10.00' , '9N0m.00' , '9N0n.00' , '9N0o.00' , '9N1Q.00' , '9N1i.00' , '9N1o.00' , '9N1v.00' , '9N2d.00' , '9N2i.00' , '9N4I.00' , '9N4p.00' , '9NJy.00')
@@ -84,19 +79,18 @@ health <- health %>%
   mutate(has_hypertension = max((condition == "hypertension"))) %>%
   mutate(has_COPD = max((condition == "COPD")))
 
-
 #count the number of patients with each condition
-health %>%
-  group_by(has_dementia) %>%
-  summarize(count = n_distinct(patid.full))
+#health %>%
+ # group_by(has_dementia) %>%
+  #summarize(count = n_distinct(patid.full))
 
-health %>%
-  ungroup() %>%
-  filter(has_dementia == 1 & has_diabetes == 1) %>%
-  summarize(count = n_distinct(patid.full))
+#health %>%
+ # ungroup() %>%
+  #filter(has_dementia == 1 & has_diabetes == 1) %>%
+  #summarize(count = n_distinct(patid.full))
 
-# tidyr to pivot data - transform condition columns into column of categories and then yes/no
-
+dat <- data.frame(id=health$patid.full, diabetes = health$has_diabetes, dementia = health$has_dementia, hypertension = health$has_hypertension, ld = health$has_liverdisease, stroke = health$has_stroke, COPD = health$has_COPD)
+summary_stats <- crossprod(as.matrix(dat[-1]))
 
 # earliest consultation per patient per disease 
 health <- health %>% 
@@ -121,12 +115,11 @@ health$death_year <- health$deathdte1 %>%
 #whether patient died that year
 health$died_year <- case_when(health$death_year == health$cons_year ~ 1, TRUE ~ 0)
 
-#check whether this works
+#create variable to identify how many conditions a patient has to date
 health <- health %>%
   group_by(patid.full) %>%
   arrange(evdatereal1) %>%
   mutate(cum_unique_conditions = dense_rank(desc(condition)))
-
 
 #Duration recorded as hhmmss (hours minutes seconds) - change to code as minutes - doesn't work
 health$duration_new <-formatC(health$duration, width = 6, format = "d", flag = "0")
@@ -134,23 +127,13 @@ health$duration_new_recoded <- as.POSIXct(health$duration_new, format="%H%M%S")
 health$timebaseline <- as.POSIXct("000000", format = "%H%M%S")
 health$duration_inseconds <- as.numeric(health$duration_new_recoded - health$timebaseline)
 
-
-#health$duration_recoded <- case_when(health$duration_recoded < 0.5 ~ 0, health$duration_recoded <= 1 ~ 1, TRUE ~ health$duration_recoded) 
-
-
-#doesn't seem to be working properly for calculating annual cost! 
-#annual cost per patient year disease. £219 is hourly cost of GP patient time, including qualification cost, excluding direct care staff costs, based on https://www.pssru.ac.uk/pub/uc/uc2018/community-based-health-care-staff.pdf, 2016/17 price year
-#health <- health %>% 
-# group_by(patid.full, cons_year)  %>%
-#mutate(annual_cost = (sum(duration_inseconds) * 219.0/3600))
+health$duration_inseconds[health$duration_inseconds > 3600] <- 3600
+max(health$duration_inseconds, na.rm = TRUE)
 
 health <- health %>% 
   group_by(patid.full, cons_year) %>%
   arrange(evdatereal1) %>%
   mutate(cumulative_annual_cost = cumsum(duration_inseconds) * 219.0/3600)
-
-health$duration_inseconds[health$duration_inseconds > 3600] <- 3600
-max(health$duration_inseconds, na.rm = TRUE)
 
 #create time since diagnosis variable
 health <- health %>% 
@@ -167,23 +150,17 @@ health <- health %>%
   group_by(cons_year) %>%
   mutate(time_to_year_end = as.numeric(day_year_end - evdatereal1))
 
+#get rid of nonsense BMI data
 health$bmi <- as.numeric(health$bmi)
 health$bmi[health$bmi >= 70] <- NA
 
 #plot distributions + QA
-ggplot(health, aes(duration_inseconds)) + geom_histogram() + xlim(c(0,3000))
-ggplot(health, aes(bmi)) + geom_density()
+#ggplot(health, aes(duration_inseconds)) + geom_histogram() + xlim(c(0,3000))
+#ggplot(health, aes(bmi)) + geom_density()
 
-ggplot(health, aes(age)) + geom_histogram() 
+#ggplot(health, aes(age)) + geom_histogram() 
 
-health %>%
-  ungroup() %>%
-  filter(cumulative_annual_cost > 1000) %>%
-  summarize(count = n_distinct(patid.full))
-
-
-
-#check for negative
+#create variable for age
 health <- health %>%
   group_by(patid.full) %>% 
   mutate(age = as.numeric(evdatereal1 - dob1))
@@ -193,10 +170,7 @@ health$age[health$age < 0] <- NA
 health$pracid1 <- transform(health$pracid,id=as.numeric(factor(health$pracid)))
 health$pracid2 <- health$pracid1$id
 
-
 #end of creating relevant variables
-#summary stats
-
 
 #xgboost doesn't accept categorical variables. Need to use vtreat. Need cleaned data that is all numerical with no missing values.
 vars <- c("condition", 
@@ -232,7 +206,10 @@ health_treated <- prepare(treatplan, health, varRestriction = newvars)
 
 #health_treated is now the final dataset - it has more variables
 #could do cross-validation with sample of data, then test the best performing xgboost model 
-health$cumulative_annual_cost[is.na(health$cumulative_annual_cost)] <- 0.00     
+
+#save health_treated
+vartypes <- sapply(health_treated, typeof)
+upload_to_datalake(df, "THIN_Analysis", "LB_DataLakeR_heath_treated", vartypes, append = FALSE)
 
 
 subsample <- seq(from=0.6, to=1, by=0.2)
@@ -252,8 +229,6 @@ results = list()
 #use function stratified to use a selection of patients to train the model 
 # splitstackshape or sample_n from dplyr
 
-vartypes <- sapply(health_treated, typeof)
-upload_to_datalake(df, "THIN_Analysis", "LB_DataLakeR_heath_treated", vartypes, append = FALSE)
 
 health_treated_sample <- health_treated %>% 
   group_by(patid.full, cons_year) %>% 
@@ -296,9 +271,6 @@ results_df <- dplyr::bind_rows(results)
 #subsample and col sample by tree
 #grid search, shuffle, build into a loop, pass row in gridsearch into the loop, 
 
-upload_to_datalake(results_df, "THIN_Analysis", "LB_DataLakeR_xgboostresults_1", vartypes, append = FALSE)
-
-view(results_df)
 
 results_df <- results_df %>%
   mutate(diff = test_mse - train_mse)
@@ -306,6 +278,14 @@ results_df <- results_df %>%
 model <- xgboost(data = as.matrix(health_treated %>% select(-cumulative_annual_cost)), label = health_treated$cumulative_annual_cost, objective = "reg:linear", nrounds = 1000, eta = 0.01, depth = 8, subsample = 0.8, colsample_bytree = 1.0) 
 #plot importances
 #test with cross-validation - test on 20% using early stopping rounds and optimal parameters
+
+linear_model <- lm(cumulative_annual_cost ~ ., health_treated)
+
+health_average_prediction <- health %>%
+  group_by(patid.full, cons_year) %>%
+  summarize(avg_cost = max(cumulative_annual_cost))
+
+health_average_prediction$naive_average <- health_average_prediction %>% mean(avg_cost)
 
 health$pred <- predict(model, as.matrix(health_treated)) 
 

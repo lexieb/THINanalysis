@@ -209,7 +209,7 @@ health_treated <- prepare(treatplan, health, varRestriction = newvars)
 
 #save health_treated
 vartypes <- sapply(health_treated, typeof)
-upload_to_datalake(df, "THIN_Analysis", "LB_DataLakeR_heath_treated", vartypes, append = FALSE)
+upload_to_datalake(health_treated, "THIN_Analysis", "LB_DataLakeR_heath_treated", vartypes, append = FALSE)
 
 
 subsample <- seq(from=0.6, to=1, by=0.2)
